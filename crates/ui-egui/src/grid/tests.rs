@@ -304,3 +304,21 @@ fn upward_text_with_middle_align_is_centred_in_a_merged_block() {
     assert!((bb.center().y - rect.center().y).abs() < 0.01, "{bb:?} not centred in {rect:?}");
     assert!((bb.center().x - rect.center().x).abs() < 0.01, "{bb:?} not centred in {rect:?}");
 }
+
+#[test]
+fn wrapped_text_gets_a_decoration_on_every_line() {
+    // Strikethrough and underline were dropped on Wrap Text cells: one rect per painted line.
+    use super::quadrant::wrapped_line_rects;
+    let ctx = egui::Context::default();
+    let mut rects = Vec::new();
+    let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+        let job = egui::text::LayoutJob::simple("struck through words".into(), egui::FontId::proportional(14.0), Color32::BLACK, 40.0);
+        let galley = ui.painter().layout_job(job);
+        rects = wrapped_line_rects(&galley, pos2(100.0, 50.0));
+        assert_eq!(rects.len(), galley.rows.len());
+    });
+    out.textures_delta.clear();
+    assert!(rects.len() >= 3, "three words in a narrow cell wrap: {rects:?}");
+    assert!(rects.iter().all(|r| r.left() >= 100.0 && r.width() > 0.0), "{rects:?}");
+    assert!(rects.windows(2).all(|w| w[1].top() >= w[0].bottom() - 0.5), "lines stack downwards: {rects:?}");
+}

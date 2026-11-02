@@ -397,7 +397,23 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
         };
         let y = wrapped_cell_text_y(st.align.v, *rect, galley.size().y, z);
         let text_clip = wrapped_text_clip(p, *rect, &galley, y, st.align.v);
-        p.with_clip_rect(text_clip).galley(pos2(x, y), galley, color);
+        let cp = p.with_clip_rect(text_clip);
+        // Underline and strikethrough follow each wrapped line.
+        for r in wrapped_line_rects(&galley, pos2(x, y)) {
+            paint_text_decorations(
+                &cp,
+                TextDecoration {
+                    x: r.left(),
+                    y: r.top(),
+                    width: r.width(),
+                    height: r.height(),
+                    color,
+                    underline: st.font.underline,
+                    strike: st.font.strike,
+                },
+            );
+        }
+        cp.galley(pos2(x, y), galley, color);
         return;
     }
     // Wrap Text off: Excel ignores the line breaks and draws the whole string on one line.
@@ -510,6 +526,11 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
         cp.galley(pos2(x, y), galley.clone(), color);
     }
     paint_text_decorations(&cp, TextDecoration { x, y, width: w, height: gh, color, underline: st.font.underline, strike: st.font.strike });
+}
+
+/// Where each non-empty line of a wrapped galley painted at `origin` sits.
+pub(super) fn wrapped_line_rects(galley: &egui::Galley, origin: Pos2) -> Vec<Rect> {
+    galley.rows.iter().filter(|r| !r.glyphs.is_empty()).map(|r| r.rect_without_leading_space().translate(origin.to_vec2())).collect()
 }
 
 struct TextDecoration {
